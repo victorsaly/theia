@@ -37,7 +37,9 @@ export function enableJSDOM(): () => void {
     if (typeof (global as any)['_disableJSDOM'] === 'function') {
         return (global as any)['_disableJSDOM'];
     }
-    const dom = new JSDOM('<!doctype html><html><body></body></html>');
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+        url: 'http://localhost/'
+    });
     (global as any)['document'] = dom.window.document;
     (global as any)['window'] = dom.window;
     (global as any)['navigator'] = { userAgent: 'node.js', platform: 'Mac' };
@@ -51,7 +53,15 @@ export function enableJSDOM(): () => void {
     });
     (dom.window.document as any)['queryCommandSupported'] = function () { };
 
+    const Module = module.parent!.require('module');
+    const originalRequire = Module.prototype.require;
+    Module.prototype.require = function (this: any, id: string, options: any) {
+        const resolvedId = id === 'vscode' ? 'monaco-languageclient/lib/vscode-compatibility' : id;
+        return originalRequire.call(this, resolvedId, options);
+    };
+
     const disableJSDOM = (global as any)['_disableJSDOM'] = () => {
+        Module.prototype.require = originalRequire;
         let property: string | undefined;
         while (property = toCleanup.pop()) {
             delete (global as any)[property];
